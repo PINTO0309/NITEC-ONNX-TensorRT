@@ -23,25 +23,6 @@ from typing import Tuple, Optional, List, Dict
 import importlib.util
 from abc import ABC, abstractmethod
 
-# https://developer.nvidia.com/cuda-gpus
-NVIDIA_GPU_MODELS_CC = [
-    'RTX 3050', 'RTX 3060', 'RTX 3070', 'RTX 3080', 'RTX 3090',
-]
-
-ONNX_TRTENGINE_SETS = {
-    'yolox_x_body_head_hand_post_0102_0.5533_1x3x384x640.onnx': [
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_910520829314548387_0_0_fp16_sm86.engine',
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_910520829314548387_1_1_fp16_sm86.engine',
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_910520829314548387_1_1_fp16_sm86.profile',
-    ],
-    'mot17_sbs_S50_NMx3x256x128_post_feature_only.onnx': [
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_377269473329240331_0_0_fp16_sm86.engine',
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_377269473329240331_0_0_fp16_sm86.profile',
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_377269473329240331_1_1_fp16_sm86.engine',
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_377269473329240331_1_1_fp16_sm86.profile',
-    ],
-}
-
 class Color(Enum):
     BLACK          = '\033[30m'
     RED            = '\033[31m'
@@ -926,7 +907,7 @@ def main():
         download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
 
     # Download NITEC onnx
-    weight_file = os.path.basename(nitec_model)
+    weight_file = os.path.basename(nitec_model_file)
     if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, weight_file)):
         url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{weight_file}"
         download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
