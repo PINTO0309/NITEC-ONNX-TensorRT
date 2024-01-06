@@ -1,7 +1,11 @@
 # NITEC-ONNX-TensorRT
 ONNX implementation of "NITEC: Versatile Hand-Annotated Eye Contact Dataset for Ego-Vision Interaction" (switchable between RetinaFace or YOLOX)  https://github.com/thohemp/nitec
 
+## 1. Test
+
 ```
+### The model is automatically downloaded on the first run.
+
 python demo_nitec_onnx_tflite.py -v 0
 ```
 
@@ -38,3 +42,7 @@ options:
     recording to MP4. Devices that use a MicroSD card or similar for main storage
     can speed up overall processing.
 ```
+
+## 2. Acknowledgements
+
+1. https://github.com/thohemp/nitec
