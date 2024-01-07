@@ -453,6 +453,7 @@ class RetinaFace(AbstractModel):
         # PostProcess
         result_boxes = \
             self._postprocess(
+                image=temp_image,
                 boxes=batchno_classid_score_x1y1x2y2_landms,
             )
         return result_boxes
@@ -496,6 +497,7 @@ class RetinaFace(AbstractModel):
 
     def _postprocess(
         self,
+        image: np.ndarray,
         boxes: np.ndarray,
     ) -> List[Box]:
         """_postprocess
@@ -518,6 +520,8 @@ class RetinaFace(AbstractModel):
 
         batchno_classid_score_x1y1x2y2: float32[N,7]
         """
+        image_height = image.shape[0]
+        image_width = image.shape[1]
         result_boxes: List[Box] = []
         if len(boxes) > 0:
             scores = boxes[:, 2:3]
@@ -526,10 +530,10 @@ class RetinaFace(AbstractModel):
             boxes_keep = boxes[keep_idxs, :]
             if len(boxes_keep) > 0:
                 for box, score in zip(boxes_keep, scores_keep):
-                    x_min = int(max(0, box[3]))
-                    y_min = int(max(0, box[4]))
-                    x_max = int(min(box[5], self._input_shapes[0][self._w_index]))
-                    y_max = int(min(box[6], self._input_shapes[0][self._h_index]))
+                    x_min = int(max(0, box[3]) * image_width / self._input_shapes[0][self._w_index])
+                    y_min = int(max(0, box[4]) * image_height / self._input_shapes[0][self._h_index])
+                    x_max = int(min(box[5], self._input_shapes[0][self._w_index]) * image_width / self._input_shapes[0][self._w_index])
+                    y_max = int(min(box[6], self._input_shapes[0][self._h_index]) * image_height / self._input_shapes[0][self._h_index])
                     result_boxes.append(
                         Box(
                             classid=int(box[1]),
