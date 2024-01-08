@@ -63,6 +63,7 @@ class Box():
     y1: int
     x2: int
     y2: int
+    landmarks: np.ndarray
 
 class AbstractModel(ABC):
     """AbstractModel
@@ -387,6 +388,7 @@ class YOLOX(AbstractModel):
                             y1=y_min,
                             x2=x_max,
                             y2=y_max,
+                            landmarks=None,
                         )
                     )
         return result_boxes
@@ -397,7 +399,7 @@ class RetinaFace(AbstractModel):
         *,
         runtime: Optional[str] = 'onnx',
         model_path: Optional[str] = 'retinaface_mbn025_with_postprocess_480x640_max20_th0.70.onnx',
-        class_score_th: Optional[float] = 0.35,
+        class_score_th: Optional[float] = 0.15,
         providers: Optional[List] = None,
     ):
         """RetinaFace
@@ -427,6 +429,7 @@ class RetinaFace(AbstractModel):
     def __call__(
         self,
         image: np.ndarray,
+        boxes: List[Box],
     ) -> List[Box]:
         """
 
@@ -435,35 +438,40 @@ class RetinaFace(AbstractModel):
         image: np.ndarray
             Entire image
 
+        boxes: List[Box]
+            Head boxes
+
         Returns
         -------
         batchno_classid_score_x1y1x2y2_landms: np.ndarray
             [N, [batchno, classid, score, x1, y1, x2, y2, landms0, ..., landms9]]
         """
         temp_image = copy.deepcopy(image)
+        temp_boxes = copy.deepcopy(boxes)
         # PreProcess
-        resized_image = \
+        inferece_images = \
             self._preprocess(
-                temp_image,
+                image=temp_image,
+                boxes=temp_boxes,
             )
         # Inference
-        inferece_image = np.asarray(resized_image, dtype=self._input_dtypes[0])
-        outputs = super().__call__(input_datas=[inferece_image])
+        outputs = super().__call__(input_datas=[inferece_images])
         batchno_classid_score_x1y1x2y2_landms = outputs[0]
         # PostProcess
-        result_boxes = \
+        face_boxes = \
             self._postprocess(
-                image=temp_image,
-                boxes=batchno_classid_score_x1y1x2y2_landms,
+                face_boxes=batchno_classid_score_x1y1x2y2_landms,
+                head_boxes=temp_boxes,
             )
-        return result_boxes
+        return face_boxes
 
     def _preprocess(
         self,
         image: np.ndarray,
-        swap: Optional[Tuple[int,int,int]] = (2, 0, 1),
+        boxes: List[Box],
+        swap: Optional[Tuple[int,int,int,int]] = (0, 3, 1, 2),
     ) -> np.ndarray:
-        """__preprocess
+        """_preprocess
 
         Parameters
         ----------
@@ -471,34 +479,36 @@ class RetinaFace(AbstractModel):
             Entire image
 
         swap: tuple
-            HWC to CHW: (2,0,1)
-            CHW to HWC: (1,2,0)
-            HWC to HWC: (0,1,2)
-            CHW to CHW: (0,1,2)
 
         Returns
         -------
         resized_image: np.ndarray
             Resized and normalized image.
         """
+        cropped_boxes = [image[box.y1:box.y2, box.x1:box.x2, :] for box in boxes]
         # Normalization + BGR->RGB
-        resized_image = cv2.resize(
-            image,
-            (
-                int(self._input_shapes[0][self._w_index]),
-                int(self._input_shapes[0][self._h_index]),
-            )
-        )
-        resized_image = resized_image[..., ::-1]
-        resized_image = resized_image.transpose(swap)
-        resized_image = resized_image[np.newaxis, ...]
-        resized_image = (resized_image - self._mean)
-        return resized_image
+        resized_image_list: List[np.ndarray] = []
+        for cropped_box in cropped_boxes:
+            h, w, c = cropped_box.shape
+            if h > 0 and w > 0:
+                resized_image = cv2.resize(
+                    cropped_box,
+                    (
+                        int(self._input_shapes[0][self._w_index]),
+                        int(self._input_shapes[0][self._h_index]),
+                    )
+                )
+                resized_image = resized_image[..., ::-1] # BGR->RGB
+                resized_image_list.append(resized_image)
+        resized_images = np.asarray(resized_image_list, dtype=self._input_dtypes[0])
+        resized_images = resized_images.transpose(swap)
+        resized_images = (resized_images - self._mean)
+        return resized_images
 
     def _postprocess(
         self,
-        image: np.ndarray,
-        boxes: np.ndarray,
+        face_boxes: np.ndarray,
+        head_boxes: List[Box],
     ) -> List[Box]:
         """_postprocess
 
@@ -520,20 +530,25 @@ class RetinaFace(AbstractModel):
 
         batchno_classid_score_x1y1x2y2: float32[N,7]
         """
-        image_height = image.shape[0]
-        image_width = image.shape[1]
         result_boxes: List[Box] = []
-        if len(boxes) > 0:
-            scores = boxes[:, 2:3]
+        if len(face_boxes) > 0:
+            scores = face_boxes[:, 2:3]
             keep_idxs = scores[:, 0] > self._class_score_th
             scores_keep = scores[keep_idxs, :]
-            boxes_keep = boxes[keep_idxs, :]
+            boxes_keep = face_boxes[keep_idxs, :]
             if len(boxes_keep) > 0:
                 for box, score in zip(boxes_keep, scores_keep):
-                    x_min = int(max(0, box[3]) * image_width / self._input_shapes[0][self._w_index])
-                    y_min = int(max(0, box[4]) * image_height / self._input_shapes[0][self._h_index])
-                    x_max = int(min(box[5], self._input_shapes[0][self._w_index]) * image_width / self._input_shapes[0][self._w_index])
-                    y_max = int(min(box[6], self._input_shapes[0][self._h_index]) * image_height / self._input_shapes[0][self._h_index])
+                    batchno = int(box[0])
+                    head_w = abs(head_boxes[batchno].x2 - head_boxes[batchno].x1)
+                    head_h = abs(head_boxes[batchno].y2 - head_boxes[batchno].y1)
+                    x_min = int(max(0, box[3]) * head_w / self._input_shapes[0][self._w_index]) + head_boxes[batchno].x1
+                    y_min = int(max(0, box[4]) * head_h / self._input_shapes[0][self._h_index]) + head_boxes[batchno].y1
+                    x_max = int(min(box[5], self._input_shapes[0][self._w_index]) * head_w / self._input_shapes[0][self._w_index]) + head_boxes[batchno].x1
+                    y_max = int(min(box[6], self._input_shapes[0][self._h_index]) * head_h / self._input_shapes[0][self._h_index]) + head_boxes[batchno].y1
+                    landmarks: np.ndarray = box[7:]
+                    landmarks = landmarks.reshape(-1, 2).astype(np.int32)
+                    landmarks[:, 0] = landmarks[:, 0] * head_w / self._input_shapes[0][self._w_index] + head_boxes[batchno].x1
+                    landmarks[:, 1] = landmarks[:, 1] * head_h / self._input_shapes[0][self._h_index] + head_boxes[batchno].y1
                     result_boxes.append(
                         Box(
                             classid=int(box[1]),
@@ -543,6 +558,7 @@ class RetinaFace(AbstractModel):
                             y1=y_min,
                             x2=x_max,
                             y2=y_max,
+                            landmarks=landmarks,
                         )
                     )
         return result_boxes
@@ -554,7 +570,6 @@ class NITEC(AbstractModel):
         runtime: Optional[str] = 'onnx',
         model_path: Optional[str] = 'nitec_rs18_e20_Nx3x224x224.onnx',
         providers: Optional[List] = None,
-        face_area_scale: Optional[float] = 0.80,
     ):
         """NITEC
 
@@ -568,10 +583,6 @@ class NITEC(AbstractModel):
 
         providers: Optional[List]
             Providers for ONNXRuntime.
-
-        face_area_scale: Optional[float]
-            Value indicating what percentage of the head bounding box
-            should be cropped as a face.
         """
         super().__init__(
             runtime=runtime,
@@ -581,7 +592,6 @@ class NITEC(AbstractModel):
             std=np.asarray([0.229, 0.224, 0.225], dtype=np.float32),
         )
         self.swap = (0,3,1,2)
-        self.face_area_scale = face_area_scale
 
     def __call__(
         self,
@@ -651,15 +661,7 @@ class NITEC(AbstractModel):
         # Resize + Transpose
         resized_images: List[np.ndarray] = []
         for box in boxes:
-            face_y1, face_y2, face_x1, face_x2 = \
-                self._calculate_reduced_area(
-                    y1=box.y1,
-                    y2=box.y2,
-                    x1=box.x1,
-                    x2=box.x2,
-                    scale=self.face_area_scale,
-                )
-            croped_image = image[face_y1:face_y2, face_x1:face_x2, :]
+            croped_image = image[box.y1:box.y2, box.x1:box.x2, :]
             resized_image = cv2.resize(
                 croped_image,
                 (
@@ -699,43 +701,6 @@ class NITEC(AbstractModel):
         for box, looked_score in zip(boxes, looked_scores):
             box.looked_score = float(looked_score)
         return boxes
-
-    def _calculate_reduced_area(
-        self,
-        *,
-        y1: int,
-        y2: int,
-        x1: int,
-        x2: int,
-        scale: float=0.80,
-    ) -> Tuple[int, int, int, int]:
-        """
-        Calculate the coordinates of a reduced area centered around the same center point
-        as the original area, but with a scale factor (default is 80%).
-
-        Parameters:
-        y1, y2, x1, x2 (int): Coordinates of the original area.
-        scale (float): Scale factor for the size reduction (default is 0.8 for 80%).
-
-        Returns:
-        tuple: Coordinates of the reduced area (y1', y2', x1', x2').
-        """
-        # Calculate the center of the original area
-        center_y = (y1 + y2) / 2
-        center_x = (x1 + x2) / 2
-        # Calculate the height and width of the original area
-        height = y2 - y1
-        width = x2 - x1
-        # Calculate the height and width of the new, reduced area
-        new_height = height * scale
-        new_width = width * scale
-        # Calculate the coordinates of the new area
-        y1_prime = int(center_y - new_height / 2 * 0.7)
-        y2_prime = int(center_y + new_height / 2)
-        x1_prime = int(center_x - new_width / 2 * 0.8)
-        x2_prime = int(center_x + new_width / 2 * 0.8)
-        return y1_prime, y2_prime, x1_prime, x2_prime
-
 
 def is_parsable_to_int(s):
     try:
@@ -834,15 +799,32 @@ def main():
         '-odm',
         '--object_detection_model',
         type=str,
-        default='yolox_t_body_head_hand_post_0299_0.4522_1x3x480x640.onnx',
+        default='yolox_m_body_head_hand_post_0299_0.5263_1x3x480x640.onnx',
         choices=[
             'yolox_n_body_head_hand_post_0461_0.4428_1x3x480x640.onnx',
-            'yolox_t_body_head_hand_post_0461_0.4428_1x3x480x640.onnx',
+            'yolox_t_body_head_hand_post_0299_0.4522_1x3x480x640.onnx',
             'yolox_s_body_head_hand_post_0299_0.4983_1x3x480x640.onnx',
             'yolox_m_body_head_hand_post_0299_0.5263_1x3x480x640.onnx',
-            'retinaface_mbn025_with_postprocess_480x640_max20_th0.70.onnx',
+            'yolox_l_body_head_hand_0299_0.5420_post_1x3x480x640.onnx',
+            'yolox_x_body_head_hand_0102_0.5533_post_1x3x480x640.onnx',
         ],
         help='ONNX/TFLite file path for YOLOX.',
+    )
+    parser.add_argument(
+        '-fdm',
+        '--face_detection_model',
+        type=str,
+        default='retinaface_mbn025_with_postprocess_Nx3x192x192_max001_th0.15.onnx',
+        choices=[
+            'retinaface_mbn025_with_postprocess_Nx3x64x64_max001_th0.15.onnx',
+            'retinaface_mbn025_with_postprocess_Nx3x96x96_max001_th0.15.onnx',
+            'retinaface_mbn025_with_postprocess_Nx3x128x128_max001_th0.15.onnx',
+            'retinaface_mbn025_with_postprocess_Nx3x160x160_max001_th0.15.onnx',
+            'retinaface_mbn025_with_postprocess_Nx3x192x192_max001_th0.15.onnx',
+            'retinaface_mbn025_with_postprocess_Nx3x224x224_max001_th0.15.onnx',
+            'retinaface_mbn025_with_postprocess_Nx3x256x256_max001_th0.15.onnx',
+        ],
+        help='ONNX/TFLite file path for FaceDetection.',
     )
     parser.add_argument(
         '-nim',
@@ -879,11 +861,15 @@ def main():
 
     # runtime check
     object_detection_model_file: str = args.object_detection_model
+    face_detection_model_file: str = args.face_detection_model
     nitec_model_file: str = args.nitec_model
     object_detection_model_ext: str = os.path.splitext(object_detection_model_file)[1][1:].lower()
+    face_detection_model_ext: str = os.path.splitext(face_detection_model_file)[1][1:].lower()
     nitec_model_file_ext: str = os.path.splitext(nitec_model_file)[1][1:].lower()
     runtime: str = None
-    if object_detection_model_ext != nitec_model_file_ext:
+    if object_detection_model_ext != nitec_model_file_ext \
+        or object_detection_model_ext != face_detection_model_ext \
+        or nitec_model_file_ext != face_detection_model_ext:
         print(Color.RED('ERROR: object_detection_model and feature_extractor_model must be files with the same extension.'))
         sys.exit(0)
     if object_detection_model_ext == 'onnx':
@@ -906,6 +892,12 @@ def main():
 
     # Download object detection onnx
     weight_file = os.path.basename(object_detection_model_file)
+    if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, weight_file)):
+        url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{weight_file}"
+        download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
+
+    # Download face detection onnx
+    weight_file = os.path.basename(face_detection_model_file)
     if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, weight_file)):
         url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{weight_file}"
         download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
@@ -942,27 +934,24 @@ def main():
         ]
 
     # Model initialization
-    if 'yolox' in object_detection_model_file:
-        object_detection_model = \
-            YOLOX(
-                runtime=runtime,
-                model_path=object_detection_model_file,
-                providers=providers,
-            )
-    elif 'retinaface' in object_detection_model_file:
-        object_detection_model = \
-            RetinaFace(
-                runtime=runtime,
-                model_path=object_detection_model_file,
-                providers=providers,
-            )
-    FACE_AREA_SCALE = 0.80 if isinstance(object_detection_model, YOLOX) else 1.00
+    object_detection_model = \
+        YOLOX(
+            runtime=runtime,
+            model_path=object_detection_model_file,
+            providers=providers,
+        )
+    face_detection_model = \
+        RetinaFace(
+            runtime=runtime,
+            model_path=face_detection_model_file,
+            class_score_th=0.85,
+            providers=providers,
+        )
     nitec_model = \
         NITEC(
             runtime=runtime,
             model_path=nitec_model_file,
             providers=providers,
-            face_area_scale=FACE_AREA_SCALE,
         )
 
     cap = cv2.VideoCapture(
@@ -994,17 +983,34 @@ def main():
         start_time = time.perf_counter()
 
         boxes = object_detection_model(image=debug_image)
-        face_boxes = \
-            [box for box in boxes if box.classid == 1] if isinstance(object_detection_model, YOLOX) else [box for box in boxes if box.classid == 0]
+        head_boxes = \
+            [box for box in boxes if box.classid == 1] if isinstance(object_detection_model, YOLOX) else [box for box in boxes if box.classid == 1]
         other_boxes = \
             [box for box in boxes if box.classid != 1] if isinstance(object_detection_model, YOLOX) else [box for box in boxes if box.classid != 0]
         looked_or_not_face_boxes: List[Box] = []
-        if len(face_boxes) > 0:
-            looked_or_not_face_boxes = nitec_model(image=debug_image, boxes=face_boxes)
+        if len(head_boxes) > 0:
+            face_boxes = face_detection_model(image=debug_image, boxes=head_boxes)
+            if len(face_boxes) > 0:
+                looked_or_not_face_boxes = nitec_model(image=debug_image, boxes=face_boxes)
 
         elapsed_time = time.perf_counter() - start_time
         cv2.putText(debug_image, f'{elapsed_time*1000:.2f} ms', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
         cv2.putText(debug_image, f'{elapsed_time*1000:.2f} ms', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 1, cv2.LINE_AA)
+
+        for box in head_boxes:
+            color = (255,255,255)
+            if box.classid == 0:
+                color = (255,0,0)
+            elif box.classid == 1:
+                color = (0,0,255)
+            elif box.classid == 2:
+                color = (0,255,0)
+            cv2.rectangle(debug_image, (box.x1, box.y1), (box.x2, box.y2), (255,255,255), 2)
+            cv2.rectangle(debug_image, (box.x1, box.y1), (box.x2, box.y2), color, 1)
+            ptx = box.x1 if box.x1+50 < debug_image_w else debug_image_w-50
+            pty = box.y1-10 if box.y1-25 > 0 else 20
+            # cv2.putText(debug_image, f'{box.score:.2f}', (ptx, pty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+            # cv2.putText(debug_image, f'{box.score:.2f}', (ptx, pty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 1, cv2.LINE_AA)
 
         for box in other_boxes:
             color = (255,255,255)
@@ -1022,34 +1028,22 @@ def main():
             # cv2.putText(debug_image, f'{box.score:.2f}', (ptx, pty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 1, cv2.LINE_AA)
 
         for box in looked_or_not_face_boxes:
-            color = (255,255,255)
-            if box.classid == 0:
-                color = (255,0,0)
-            elif box.classid == 1:
-                color = (0,0,255)
-            elif box.classid == 2:
-                color = (0,255,0)
-            cv2.rectangle(debug_image, (box.x1, box.y1), (box.x2, box.y2), (255,255,255), 2)
-            cv2.rectangle(debug_image, (box.x1, box.y1), (box.x2, box.y2), color, 1)
-
-            if isinstance(object_detection_model, YOLOX):
-                face_y1, face_y2, face_x1, face_x2 = \
-                    nitec_model._calculate_reduced_area(
-                        y1=box.y1,
-                        y2=box.y2,
-                        x1=box.x1,
-                        x2=box.x2,
-                        scale=FACE_AREA_SCALE,
-                    )
-                draw_dashed_rectangle(
-                    image=debug_image,
-                    top_left=(face_x1, face_y1),
-                    bottom_right=(face_x2, face_y2),
-                    color=(0, 200, 255),
-                    thickness=2,
-                    dash_length=10,
-                )
-
+            draw_dashed_rectangle(
+                image=debug_image,
+                top_left=(box.x1, box.y1),
+                bottom_right=(box.x2, box.y2),
+                color=(255, 255, 255),
+                thickness=2,
+                dash_length=10,
+            )
+            draw_dashed_rectangle(
+                image=debug_image,
+                top_left=(box.x1, box.y1),
+                bottom_right=(box.x2, box.y2),
+                color=(0, 200, 255),
+                thickness=1,
+                dash_length=10,
+            )
             ptx = box.x1 if box.x1+50 < debug_image_w else debug_image_w-50
             pty = box.y1-10 if box.y1-25 > 0 else 20
             if box.looked_score >= 0.25:
