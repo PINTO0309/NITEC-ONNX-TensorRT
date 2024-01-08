@@ -43,7 +43,7 @@ options:
     show this help message and exit
   -odm {...}, --object_detection_model {...}
     ONNX/TFLite file path for YOLOX.
--fdm {...}, --face_detection_model {...}
+  -fdm {...}, --face_detection_model {...}
     ONNX/TFLite file path for FaceDetection.
   -nim NITEC_MODEL, --nitec_model NITEC_MODEL
     ONNX/TFLite file path for NITEC.
