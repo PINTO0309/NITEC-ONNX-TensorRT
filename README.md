@@ -9,7 +9,7 @@ ONNX implementation of "NITEC: Versatile Hand-Annotated Eye Contact Dataset for 
 python demo_nitec_onnx_tflite.py -v 0
 ```
 
-https://github.com/PINTO0309/NITEC-ONNX-TensorRT/assets/33194443/8f1bb9a1-11d7-4ac0-867e-e21241432c6e
+https://github.com/PINTO0309/NITEC-ONNX-TensorRT/assets/33194443/cb04559c-9601-4d17-96f8-e50f583b7538
 
 ```
 usage: demo_nitec_onnx_tflite.py \
