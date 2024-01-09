@@ -32,7 +32,7 @@ python demo_nitec_onnx_tflite.py -v 0
 python demo_nitec_onnx_tflite.py -v xxxx.mp4
 ```
 
-https://github.com/PINTO0309/NITEC-ONNX-TensorRT/assets/33194443/d98dc6a4-66de-4e42-bb6e-766ff00acb56
+https://github.com/PINTO0309/NITEC-ONNX-TensorRT/assets/33194443/3a8f6a9b-c7b1-4ffc-9d4c-d5f57734554e
 
 ```
 usage: demo_nitec_onnx_tflite.py \
