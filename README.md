@@ -6,7 +6,30 @@ ONNX implementation of "NITEC: Versatile Hand-Annotated Eye Contact Dataset for 
 ```
 ### The model is automatically downloaded on the first run.
 
+docker pull pinto0309/botsort_onnx_tensorrt:latest
+
+# With USBCam
+xhost +local: && \
+docker run --rm -it --gpus all \
+-v `pwd`:/workdir \
+-e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
+-e DISPLAY=$DISPLAY \
+-v /tmp/.X11-unix/:/tmp/.X11-unix:rw \
+--device /dev/video0:/dev/video0:mwr \
+pinto0309/botsort_onnx_tensorrt:latest
+
+# Without USBCam
+xhost +local: && \
+docker run --rm -it --gpus all \
+-v `pwd`:/workdir \
+-e XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
+-e DISPLAY=$DISPLAY \
+-v /tmp/.X11-unix/:/tmp/.X11-unix:rw \
+pinto0309/botsort_onnx_tensorrt:latest
+
 python demo_nitec_onnx_tflite.py -v 0
+
+python demo_nitec_onnx_tflite.py -v xxxx.mp4
 ```
 
 https://github.com/PINTO0309/NITEC-ONNX-TensorRT/assets/33194443/cb04559c-9601-4d17-96f8-e50f583b7538
