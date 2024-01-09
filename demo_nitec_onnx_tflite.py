@@ -34,15 +34,15 @@ ONNX_TRTENGINE_SETS = {
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_1_1_fp16_sm86.engine',
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_1_1_fp16_sm86.profile',
     ],
-    'nitec_rs18_e20_Nx3x224x224.onnx': [
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_3699283454274435697_0_0_fp16_sm86.engine',
-        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_3699283454274435697_0_0_fp16_sm86.profile',
-    ],
     'retinaface_resnet50_with_postprocess_Nx3x96x96_max001_th015.onnx': [
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_0_0_fp16_sm86.engine',
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_0_0_fp16_sm86.profile',
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_1_1_fp16_sm86.engine',
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_1_1_fp16_sm86.profile',
+    ],
+    'nitec_rs18_e20_Nx3x224x224.onnx': [
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_3699283454274435697_0_0_fp16_sm86.engine',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_3699283454274435697_0_0_fp16_sm86.profile',
     ],
 }
 
