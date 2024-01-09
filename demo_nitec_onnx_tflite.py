@@ -23,6 +23,29 @@ from typing import Tuple, Optional, List, Dict
 import importlib.util
 from abc import ABC, abstractmethod
 
+# https://developer.nvidia.com/cuda-gpus
+NVIDIA_GPU_MODELS_CC = [
+    'RTX 3050', 'RTX 3060', 'RTX 3070', 'RTX 3080', 'RTX 3090',
+]
+
+ONNX_TRTENGINE_SETS = {
+    'yolox_x_body_head_hand_post_0102_0.5533_1x3x384x640.onnx': [
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_0_0_fp16_sm86.engine',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_1_1_fp16_sm86.engine',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_1_1_fp16_sm86.profile',
+    ],
+    'nitec_rs18_e20_Nx3x224x224.onnx': [
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_3699283454274435697_0_0_fp16_sm86.engine',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_3699283454274435697_0_0_fp16_sm86.profile',
+    ],
+    'retinaface_resnet50_with_postprocess_Nx3x96x96_max001_th015.onnx': [
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_0_0_fp16_sm86.engine',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_0_0_fp16_sm86.profile',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_1_1_fp16_sm86.engine',
+        'TensorrtExecutionProvider_TRTKernel_graph_main_graph_872229052433028103_1_1_fp16_sm86.profile',
+    ],
+}
+
 class Color(Enum):
     BLACK          = '\033[30m'
     RED            = '\033[31m'
@@ -799,7 +822,7 @@ def main():
         '-odm',
         '--object_detection_model',
         type=str,
-        default='yolox_m_body_head_hand_post_0299_0.5263_1x3x480x640.onnx',
+        default='yolox_x_body_head_hand_0102_0.5533_post_1x3x480x640.onnx',
         choices=[
             'yolox_n_body_head_hand_post_0461_0.4428_1x3x480x640.onnx',
             'yolox_t_body_head_hand_post_0299_0.4522_1x3x480x640.onnx',
@@ -814,7 +837,7 @@ def main():
         '-fdm',
         '--face_detection_model',
         type=str,
-        default='retinaface_mbn025_with_postprocess_Nx3x192x192_max001_th0.15.onnx',
+        default='retinaface_resnet50_with_postprocess_Nx3x96x96_max001_th015.onnx',
         choices=[
             'retinaface_mbn025_with_postprocess_Nx3x64x64_max001_th0.15.onnx',
             'retinaface_mbn025_with_postprocess_Nx3x96x96_max001_th0.15.onnx',
@@ -823,6 +846,13 @@ def main():
             'retinaface_mbn025_with_postprocess_Nx3x192x192_max001_th0.15.onnx',
             'retinaface_mbn025_with_postprocess_Nx3x224x224_max001_th0.15.onnx',
             'retinaface_mbn025_with_postprocess_Nx3x256x256_max001_th0.15.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x64x64_max001_th015.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x96x96_max001_th015.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x128x128_max001_th015.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x160x160_max001_th015.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x192x192_max001_th015.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x224x224_max001_th015.onnx',
+            'retinaface_resnet50_with_postprocess_Nx3x256x256_max001_th015.onnx',
         ],
         help='ONNX/TFLite file path for FaceDetection.',
     )
@@ -845,7 +875,7 @@ def main():
         '--execution_provider',
         type=str,
         choices=['cpu', 'cuda', 'tensorrt'],
-        default='cuda',
+        default='tensorrt',
         help='Execution provider for ONNXRuntime.',
     )
     parser.add_argument(
@@ -889,24 +919,56 @@ def main():
             sys.exit(0)
 
     WEIGHT_FOLDER_PATH = '.'
+    gpu_models = get_nvidia_gpu_model()
+    default_supported_gpu_model = False
+    if len(gpu_models) == 1:
+        gpu_model = gpu_models[0]
+        for target_gpu_model in NVIDIA_GPU_MODELS_CC:
+            if target_gpu_model in gpu_model:
+                default_supported_gpu_model = True
+                break
 
     # Download object detection onnx
     weight_file = os.path.basename(object_detection_model_file)
     if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, weight_file)):
         url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{weight_file}"
         download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
+    # Download YOLOX tensorrt engine
+    if default_supported_gpu_model:
+        trt_engine_files = ONNX_TRTENGINE_SETS.get(weight_file, None)
+        if trt_engine_files is not None:
+            for trt_engine_file in trt_engine_files:
+                if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, trt_engine_file)):
+                    url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{trt_engine_file}"
+                    download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=trt_engine_file)
 
     # Download face detection onnx
     weight_file = os.path.basename(face_detection_model_file)
     if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, weight_file)):
         url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{weight_file}"
         download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
+    # Download RetinaFace tensorrt engine
+    if default_supported_gpu_model:
+        trt_engine_files = ONNX_TRTENGINE_SETS.get(weight_file, None)
+        if trt_engine_files is not None:
+            for trt_engine_file in trt_engine_files:
+                if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, trt_engine_file)):
+                    url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{trt_engine_file}"
+                    download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=trt_engine_file)
 
     # Download NITEC onnx
     weight_file = os.path.basename(nitec_model_file)
     if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, weight_file)):
         url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{weight_file}"
         download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=weight_file)
+    # Download NITEC tensorrt engine
+    if default_supported_gpu_model:
+        trt_engine_files = ONNX_TRTENGINE_SETS.get(weight_file, None)
+        if trt_engine_files is not None:
+            for trt_engine_file in trt_engine_files:
+                if not os.path.isfile(os.path.join(WEIGHT_FOLDER_PATH, trt_engine_file)):
+                    url = f"https://github.com/PINTO0309/NITEC-ONNX-TensorRT/releases/download/onnx/{trt_engine_file}"
+                    download_file(url=url, folder=WEIGHT_FOLDER_PATH, filename=trt_engine_file)
 
     video: str = args.video
     execution_provider: str = args.execution_provider
