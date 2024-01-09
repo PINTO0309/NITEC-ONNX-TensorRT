@@ -1,5 +1,5 @@
 # NITEC-ONNX-TensorRT
-ONNX implementation of "NITEC: Versatile Hand-Annotated Eye Contact Dataset for Ego-Vision Interaction" (switchable between RetinaFace or YOLOX)  https://github.com/thohemp/nitec
+ONNX implementation of "NITEC: Versatile Hand-Annotated Eye Contact Dataset for Ego-Vision Interaction" https://github.com/thohemp/nitec
 
 ## 1. Test
 
