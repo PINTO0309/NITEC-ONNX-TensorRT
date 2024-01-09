@@ -29,7 +29,7 @@ NVIDIA_GPU_MODELS_CC = [
 ]
 
 ONNX_TRTENGINE_SETS = {
-    'yolox_x_body_head_hand_post_0102_0.5533_1x3x384x640.onnx': [
+    'yolox_x_body_head_hand_0102_0.5533_post_1x3x480x640.onnx': [
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_0_0_fp16_sm86.engine',
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_1_1_fp16_sm86.engine',
         'TensorrtExecutionProvider_TRTKernel_graph_main_graph_17163497595434198363_1_1_fp16_sm86.profile',
