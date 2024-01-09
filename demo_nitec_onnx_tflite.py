@@ -1108,7 +1108,7 @@ def main():
             )
             ptx = box.x1 if box.x1+50 < debug_image_w else debug_image_w-50
             pty = box.y1-10 if box.y1-25 > 0 else 20
-            if box.looked_score >= 0.25:
+            if box.looked_score >= 0.15:
                 cv2.putText(debug_image, 'Looked', (ptx, pty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
                 cv2.putText(debug_image, 'Looked', (ptx, pty), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0,0,255), 1, cv2.LINE_AA)
 
