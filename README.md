@@ -72,3 +72,16 @@ tensorflowjs_converter \
 saved_model \
 tfjs_model
 ```
+
+## 4. Convert to OpenVINO IR
+- Install OpenVINO
+
+  https://www.isus.jp/wp-content/uploads/openvino/2024/docs/get-started/install-openvino.html?VERSION=v_2024_0_0&OP_SYSTEM=LINUX&DISTRIBUTION=APT
+
+- Convert
+  - https://www.isus.jp/wp-content/uploads/openvino/2024/docs/openvino-workflow/model-preparation.html
+  - https://www.isus.jp/wp-content/uploads/openvino/2024/docs/openvino-workflow/model-preparation/convert-model-to-ir.html
+    ```
+    ovc nitec_rs18_e20_Nx3x224x224.onnx --output_model openvino/
+    ovc yolov9_n_wholebody25_post_0100_1x3x480x640.onnx --output_model openvino/
+    ```
