@@ -84,4 +84,32 @@ tfjs_model
     ```
     ovc nitec_rs18_e20_Nx3x224x224.onnx --output_model openvino/
     ovc yolov9_n_wholebody25_post_0100_1x3x480x640.onnx --output_model openvino/
+
+    benchmark_app \
+    -m openvino/nitec_rs18_e20_Nx3x224x224.xml \
+    -b 1
+    
+    [ INFO ] Execution Devices:['CPU']
+    [ INFO ] Count:            16092 iterations
+    [ INFO ] Duration:         60025.50 ms
+    [ INFO ] Latency:
+    [ INFO ]    Median:        14.78 ms
+    [ INFO ]    Average:       14.81 ms
+    [ INFO ]    Min:           10.72 ms
+    [ INFO ]    Max:           46.62 ms
+    [ INFO ] Throughput:   268.09 FPS
+    
+    benchmark_app \
+    -m openvino/yolov9_n_wholebody25_post_0100_1x3x480x640.xml \
+    -shape "input_bgr[1,3,480,640]"
+    
+    [ INFO ] Execution Devices:['CPU']
+    [ INFO ] Count:            16816 iterations
+    [ INFO ] Duration:         60014.17 ms
+    [ INFO ] Latency:
+    [ INFO ]    Median:        14.09 ms
+    [ INFO ]    Average:       14.18 ms
+    [ INFO ]    Min:           9.72 ms
+    [ INFO ]    Max:           31.78 ms
+    [ INFO ] Throughput:   280.20 FPS
     ```
