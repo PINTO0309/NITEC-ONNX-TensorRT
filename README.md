@@ -11,7 +11,13 @@ python demo_nitec_onnx_tflite.py -v 0
 python demo_nitec_onnx_tflite.py -v xxxx.mp4
 ```
 
-https://github.com/PINTO0309/NITEC-ONNX-TensorRT/assets/33194443/3a8f6a9b-c7b1-4ffc-9d4c-d5f57734554e
+- TensorRT RTX3070 (YOLOv9 + NITEC)
+
+  https://github.com/user-attachments/assets/09b646e5-def9-44a8-b1c2-2e6ea0a24558
+
+- CPU Intel(R) Core(TM) i9-10900K CPU @ 3.70GHz (YOLOv9 + NITEC)
+
+  https://github.com/user-attachments/assets/e40a646a-711b-47d3-9e15-204803d33b47
 
 ```
 usage: demo_nitec_onnx_tflite.py \
