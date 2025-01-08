@@ -58,3 +58,17 @@ options:
 ## 2. Acknowledgements
 
 1. https://github.com/thohemp/nitec
+
+## 3. Convert to TensorFlow.js
+```bash
+onnx2tf \
+-i nitec_rs18_e20_Nx3x224x224.onnx \
+-cotof \
+-coion
+
+tensorflowjs_converter \
+--input_format tf_saved_model \
+--output_format tfjs_graph_model \
+saved_model \
+tfjs_model
+```
