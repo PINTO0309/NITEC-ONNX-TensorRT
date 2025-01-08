@@ -11,6 +11,10 @@ python demo_nitec_onnx_tflite.py -v 0
 python demo_nitec_onnx_tflite.py -v xxxx.mp4
 ```
 
+- Base models
+
+  https://github.com/PINTO0309/PINTO_model_zoo/tree/main/459_YOLOv9-Wholebody25
+
 - TensorRT RTX3070 (YOLOv9 + NITEC)
 
   https://github.com/user-attachments/assets/09b646e5-def9-44a8-b1c2-2e6ea0a24558
