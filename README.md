@@ -59,7 +59,7 @@ options:
 
 1. https://github.com/thohemp/nitec
 
-## 3. Convert to TensorFlow.js
+## 3. Convert to LiteRT (TFLite) / TensorFlow.js
 ```bash
 onnx2tf \
 -i nitec_rs18_e20_Nx3x224x224.onnx \
