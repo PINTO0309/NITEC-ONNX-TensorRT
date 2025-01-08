@@ -2,3 +2,7 @@
 *.engine
 *.profile
 *.mp4
+
+saved_model*/
+tfjs_model*/
+openvino*/
